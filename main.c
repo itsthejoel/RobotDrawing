@@ -113,7 +113,7 @@ int main()
     printf("\nPen is returning to origin...\n");
     char returnToOriginCommand[100];
     sprintf(returnToOriginCommand, "G0 X0 Y0\n"); // Move to origin with pen up
-    sendCommands(returnToOriginCommand);
+    SendCommands(returnToOriginCommand);
     Sleep(5000);
 
     // Before we exit the program we need to close the COM port
@@ -241,10 +241,10 @@ void generateAndSendGCode(int x, int y, int pen_down, int *previous_pen_state)
 
     if (pen_down != *previous_pen_state) {
         sprintf(gcodeBuffer, "S%d\n", pen_down ? 1000 : 0);
-        sendCommands(gcodeBuffer);
+        SendCommands(gcodeBuffer);
         *previous_pen_state = pen_down;
     }
 
     sprintf(gcodeBuffer, "G%d X%d Y%d\n", pen_down ? 1 : 0, x, y);
-    sendCommands(gcodeBuffer);
+    SendCommands(gcodeBuffer);
 }
