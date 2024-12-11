@@ -29,6 +29,7 @@ struct CharacterData
 };
 
 void SendCommands (char *buffer );
+int loadFontData(FILE *fontFile, struct CharacterData fontData[MAX_CHARACTERS]);
 
 int main()
 {
@@ -65,6 +66,33 @@ int main()
     sprintf (buffer, "S0\n");
     SendCommands(buffer);
 
+    FILE *fontFile, *textFile;
+    struct CharacterData fontData[MAX_CHARACTERS];
+    int textHeight;
+
+    // Open and load font data
+    fontFile = fopen("SingleStrokeFont.txt", "r");
+    if (!fontFile) 
+    {
+        perror("Error opening font file");
+        return EXIT_FAILURE;
+    }
+    loadFontData(fontFile, fontData);
+    fclose(fontFile);
+
+    // Get text file name from user
+    char textFileName[50];
+    printf("Enter text file name: ");
+    scanf("%s", textFileName);
+
+    // Open the text file
+    textFile = fopen(textFileName, "r");
+    if (!textFile) 
+    {
+        perror("Error opening text file.");
+        return EXIT_FAILURE;
+    }
+
     // Before we exit the program we need to close the COM port
     CloseRS232Port();
     printf("Com port now closed\n");
@@ -81,4 +109,29 @@ void SendCommands (char *buffer )
     WaitForReply();
     Sleep(100); // Can omit this when using the writing robot but has minimal effect
     // getch(); // Omit this once basic testing with emulator has taken place
+}
+
+// Function to load font data from a file
+int loadFontData(FILE *fontFile, struct CharacterData fontData[MAX_CHARACTERS]) 
+{
+    int ascii_code, stroke_count, x, y, pen_down, index = 0;
+
+    while (fscanf(fontFile, "%d", &ascii_code) != EOF) 
+    {
+        if (ascii_code == 999) 
+        {
+            fscanf(fontFile, "%d %d", &ascii_code, &stroke_count);
+            fontData[index].ascii_char = ascii_code;
+            fontData[index].stroke_count = stroke_count;
+
+            for (int i = 0; i < stroke_count; ++i) 
+            {
+                fscanf(fontFile, "%d %d %d", &x, &y, &pen_down);
+                fontData[index].strokes[i] = (struct Stroke){x, y, pen_down};
+            }
+            fontData[index].char_width = fontData[index].strokes[stroke_count - 1].x;
+            ++index;
+        }
+    }
+    return 0;
 }
