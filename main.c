@@ -28,8 +28,10 @@ struct CharacterData
     int char_width;
 };
 
-void SendCommands (char *buffer );
+void SendCommands (char *buffer);
 int loadFontData(FILE *fontFile, struct CharacterData fontData[MAX_CHARACTERS]);
+void processTextandCalculateWidth(FILE *textFile, struct CharacterData fontData[MAX_CHARACTERS], int textHeight, int *current_x, int *current_y, int *prev_pen_state);
+void generateAndSendGCode(int x, int y, int pen_down, int *previous_pen_state);
 
 int main()
 {
@@ -93,6 +95,21 @@ int main()
         return EXIT_FAILURE;
     }
 
+    // Get and validate text height from user
+    printf("Enter text height (4-10 mm): ");
+    scanf("%d", &textHeight);
+    if (textHeight < 4 || textHeight > 10) 
+    {
+        fprintf(stderr, "Error: Text height must be between 4 and 10 mm.\n");
+        return EXIT_FAILURE;
+    }
+
+    // Define position and pen state variables
+    int current_x = 0, current_y = 0, prev_pen_state = 0;
+    // Process the text file and generate G-code
+    processTextandCalculateWidth(textFile, fontData, textHeight, &current_x, &current_y, &prev_pen_state);
+    fclose(textFile);
+
     // Before we exit the program we need to close the COM port
     CloseRS232Port();
     printf("Com port now closed\n");
@@ -134,4 +151,94 @@ int loadFontData(FILE *fontFile, struct CharacterData fontData[MAX_CHARACTERS])
         }
     }
     return 0;
+}
+
+void processTextandCalculateWidth(FILE *textFile, struct CharacterData fontData[MAX_CHARACTERS], int textHeight, int *current_x, int *current_y, int *prev_pen_state) 
+{
+    char currentChar;
+    int accumulated_width = 0;
+
+    while ((currentChar = fgetc(textFile)) != EOF) 
+    {
+        if (currentChar == '\n') 
+        {
+            // Handle explicit newlines
+            *current_x = 0;
+            *current_y -= LINE_GAP + textHeight;
+            accumulated_width = 0;
+        } 
+        else if (currentChar == '\r') 
+        {
+            continue; // Ignore carriage return characters
+        } 
+        else if (currentChar == ' ') 
+        {
+            // Handle spaces
+            int space_width = SPACE_GAP * textHeight / FONT_UNIT_SIZE;
+            accumulated_width += space_width;
+            *current_x += space_width;
+
+            if (accumulated_width > MAX_TEXT_WIDTH) 
+            {
+                *current_x = 0;
+                *current_y -= LINE_GAP + textHeight;
+                accumulated_width = 0;
+            }
+        } 
+        else 
+        {
+            // Get character data
+            int ascii_value = (int)currentChar;
+            struct CharacterData character = fontData[ascii_value];
+
+            if (character.stroke_count == 0) 
+            {
+                // Skip unsupported characters
+                continue;
+            }
+
+            // Calculate character width scaled to text height
+            int char_width = character.char_width * textHeight / FONT_UNIT_SIZE;
+
+            if (accumulated_width + char_width > MAX_TEXT_WIDTH) 
+            {
+                // Start a new line if accumulated width exceeds the limit
+                *current_x = 0;
+                *current_y -= LINE_GAP + textHeight;
+                accumulated_width = 0;
+            }
+
+            // Generate G-code for the character
+            for (int i = 0; i < character.stroke_count; ++i) 
+            {
+                int x = character.strokes[i].x * textHeight / FONT_UNIT_SIZE;
+                int y = character.strokes[i].y * textHeight / FONT_UNIT_SIZE;
+                int pen = character.strokes[i].pen_down;
+
+                x += *current_x;
+                y += *current_y;
+                generateAndSendGCode(x, y, pen, prev_pen_state);
+            }
+
+            // Update the accumulated width and current position
+            accumulated_width += char_width;
+            *current_x += char_width;
+        }
+    } 
+    return 0;
+}
+
+// Function to generate and send G-code commands
+void generateAndSendGCode(int x, int y, int pen_down, int *previous_pen_state) 
+{
+    char gcodeBuffer[100];
+
+    if (pen_down != *previous_pen_state) {
+        sprintf(gcodeBuffer, "S%d\n", pen_down ? 1000 : 0);
+        sendCommands(gcodeBuffer);
+        *previous_pen_state = pen_down;
+    }
+
+    sprintf(gcodeBuffer, "G%d X%d Y%d\n", pen_down ? 1 : 0, x, y);
+    sendCommands(gcodeBuffer);
 }
