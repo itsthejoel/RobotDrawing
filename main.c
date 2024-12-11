@@ -3,7 +3,30 @@
 #include "rs232.h"
 #include "serial.h"
 
-#define bdrate 115200               /* 115200 baud */
+// Constants for font dimensions and spacing
+#define BAUD_RATE 115200  
+#define MAX_CHARACTERS 256
+#define FONT_UNIT_SIZE 18
+#define MAX_TEXT_WIDTH 100.0
+#define LINE_GAP 5.0
+#define SPACE_GAP 10.0
+
+// Structure to define a single stroke in a character
+struct Stroke 
+{
+    int x;
+    int y;
+    int pen_down;
+};
+
+// Structure to hold font data for a character
+struct CharacterData 
+{
+    int ascii_char;
+    int stroke_count;
+    struct Stroke strokes[100];
+    int char_width;
+};
 
 void SendCommands (char *buffer );
 
@@ -25,7 +48,7 @@ int main()
 
     // We do this by sending a new-line
     sprintf (buffer, "\n");
-     // printf ("Buffer to send: %s", buffer); // For diagnostic purposes only, normally comment out
+    // printf ("Buffer to send: %s", buffer); // For diagnostic purposes only, normally comment out
     PrintBuffer (&buffer[0]);
     Sleep(100);
 
@@ -34,7 +57,7 @@ int main()
 
     printf ("\nThe robot is now ready to draw\n");
 
-        //These commands get the robot into 'ready to draw mode' and need to be sent before any writing commands
+    //These commands get the robot into 'ready to draw mode' and need to be sent before any writing commands
     sprintf (buffer, "G1 X0 Y0 F1000\n");
     SendCommands(buffer);
     sprintf (buffer, "M3\n");
