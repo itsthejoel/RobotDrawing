@@ -43,21 +43,20 @@ int main()
     if ( CanRS232PortBeOpened() == -1 )
     {
         printf ("\nUnable to open the COM port (specified in serial.h) ");
-        exit (0);
+        exit (EXIT_FAILURE);
     }
 
     // Time to wake up the robot
     printf ("\nAbout to wake up the robot\n");
 
     // We do this by sending a new-line
+    printf("\nInitializing robot...\n");
     sprintf (buffer, "\n");
-    // printf ("Buffer to send: %s", buffer); // For diagnostic purposes only, normally comment out
     PrintBuffer (&buffer[0]);
     Sleep(100);
 
     // This is a special case - we wait  until we see a dollar ($)
     WaitForDollar();
-
     printf ("\nThe robot is now ready to draw\n");
 
     //These commands get the robot into 'ready to draw mode' and need to be sent before any writing commands
@@ -110,11 +109,18 @@ int main()
     processTextandCalculateWidth(textFile, fontData, textHeight, &current_x, &current_y, &prev_pen_state);
     fclose(textFile);
 
+    // Move the pen back to the origin
+    printf("\nPen is returning to origin...\n");
+    char returnToOriginCommand[100];
+    sprintf(returnToOriginCommand, "G0 X0 Y0\n"); // Move to origin with pen up
+    sendCommands(returnToOriginCommand);
+    Sleep(5000);
+
     // Before we exit the program we need to close the COM port
     CloseRS232Port();
     printf("Com port now closed\n");
 
-    return (0);
+    return (EXIT_SUCCESS);
 }
 
 // Send the data to the robot - note in 'PC' mode you need to hit space twice
